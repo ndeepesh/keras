@@ -108,6 +108,11 @@ class BatchNormalization(Layer):
     def call(self, x, mask=None):
         if self.mode == 0 or self.mode == 2:
             assert self.built, 'Layer must be built before being called'
+            if K.backend() == 'mxnet':
+                assert self.mode == 0, "MXNet backend only support BatchNorm with mode 0"
+                return K.mxnet_batchnorm(x, self.gamma, self.beta, self.running_mean,
+                                       self.running_std, axis=self.axis,
+                                       epsilon=self.epsilon)
             input_shape = K.int_shape(x)
 
             reduction_axes = list(range(len(input_shape)))

@@ -1785,6 +1785,14 @@ def batch_normalization(x, mean, var, beta, gamma, epsilon=1e-3):
     return KerasSymbol(x)
 
 
+@keras_symbol_child
+def mxnet_batchnorm(x, gamma, beta, moving_mean, moving_var, axis=-1, epsilon=1e-3):
+    """Applay mxnet batch norm"""
+    return KerasSymbol(
+        mx.sym.BatchNorm(x.symbol, gamma.symbol, beta.symbol, moving_mean.symbol,
+                         moving_var.symbol, axis=axis, eps=epsilon))
+
+
 # SHAPE OPERATIONS
 @keras_symbol_child
 def concatenate(tensors, axis=-1):
