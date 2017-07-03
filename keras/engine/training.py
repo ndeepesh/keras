@@ -1848,7 +1848,7 @@ if K.backend() == 'mxnet':
             self._test_sym = test_keras_symbol.symbol
             self._ntest = len(self.metrics_tensors) + 1
 
-            pred_keras_symbol = K.group(self.outputs + state_updates)
+            pred_keras_symbol = K.group(self.outputs + [symbol for symbol in state_updates if symbol not in self.outputs])
             bind_values.update(K.dfs_get_bind_values(pred_keras_symbol))
             self._pred_sym = pred_keras_symbol.symbol
             self._npred = len(self.outputs)
