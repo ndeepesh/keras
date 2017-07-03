@@ -650,6 +650,12 @@ if K.backend() == 'mxnet':
         def _get_lr(self, _):
             return self.lr.tensor.asscalar()/(1. + self.decay.tensor.asscalar()*self.num_update)
 
+        def get_config(self):
+            config = {}
+            if hasattr(self, 'clip_gradient'):
+                config['clipnorm'] = self.clip_gradient
+            return config
+
 
     class SGD(MXOptimizer, K.mx.optimizer.SGD):
         def __init__(self, lr=0.01, momentum=0., decay=0.,
@@ -657,15 +663,40 @@ if K.backend() == 'mxnet':
             K.mx.optimizer.SGD.__init__(self, learning_rate=lr, momentum=momentum, clip_gradient=clipnorm, **kwargs)
             MXOptimizer.__init__(self, lr, decay)
 
+        def get_config(self):
+            config = {'lr': float(K.get_value(self.lr)),
+                      'momentum': float(K.get_value(self.momentum)),
+                      'decay': float(K.get_value(self.decay))}
+            base_config = super(SGD, self).get_config()
+            return dict(list(base_config.items()) + list(config.items()))
+
+
     class Adagrad(MXOptimizer, K.mx.optimizer.AdaGrad):
         def __init__(self, lr=0.01, epsilon=1e-8, decay=0., clipnorm=None, **kwargs):
             K.mx.optimizer.AdaGrad.__init__(self, learning_rate=lr, eps=epsilon, clip_gradient=clipnorm, **kwargs)
             MXOptimizer.__init__(self, lr, decay)
 
+        def get_config(self):
+            config = {'lr': float(K.get_value(self.lr)),
+                      'decay': float(K.get_value(self.decay)),
+                      'epsilon': float(K.get_value(self.float_stable_eps))}
+            base_config = super(Adagrad, self).get_config()
+            return dict(list(base_config.items()) + list(config.items()))
+
+
     class Adadelta(MXOptimizer, K.mx.optimizer.AdaDelta):
         def __init__(self, lr=1.0, rho=0.95, epsilon=1e-8, decay=0., clipnorm=None, **kwargs):
             K.mx.optimizer.AdaDelta.__init__(self, rho=rho, epsilon=epsilon, clip_gradient=clipnorm, **kwargs)
             MXOptimizer.__init__(self, lr, decay)
+
+        def get_config(self):
+            config = {'lr': float(K.get_value(self.lr)),
+                      'rho': float(K.get_value(self.rho)),
+                      'decay': float(K.get_value(self.decay)),
+                      'epsilon': self.epsilon}
+            base_config = super(Adadelta, self).get_config()
+            return dict(list(base_config.items()) + list(config.items()))
+
 
     class Adam(MXOptimizer, K.mx.optimizer.Adam):
         def __init__(self, lr=0.001, beta_1=0.9, beta_2=0.999,
@@ -674,12 +705,30 @@ if K.backend() == 'mxnet':
                                          epsilon=epsilon, clip_gradient=clipnorm, **kwargs)
             MXOptimizer.__init__(self, lr, decay)
 
+        def get_config(self):
+            config = {'lr': float(K.get_value(self.lr)),
+                      'beta_1': float(K.get_value(self.beta1)),
+                      'beta_2': float(K.get_value(self.beta2)),
+                      'decay': float(K.get_value(self.decay)),
+                      'epsilon': self.epsilon}
+            base_config = super(Adam, self).get_config()
+            return dict(list(base_config.items()) + list(config.items()))
+
+
     class RMSprop(MXOptimizer, K.mx.optimizer.RMSProp):
         def __init__(self, lr=0.001, rho=0.9, epsilon=1e-8, decay=0., clipnorm=None, **kwargs):
             # TODO: Map all parameters
             K.mx.optimizer.RMSProp.__init__(self, learning_rate=lr, gamma1=rho, epsilon=epsilon,
                                             clip_gradient=clipnorm, **kwargs)
             MXOptimizer.__init__(self, lr, decay)
+
+        def get_config(self):
+            config = {'lr': float(K.get_value(self.lr)),
+                      'rho': float(K.get_value(self.gamma1)),
+                      'decay': float(K.get_value(self.decay)),
+                      'epsilon': self.epsilon}
+            base_config = super(RMSprop, self).get_config()
+            return dict(list(config.items()))
 # Aliases.
 
 sgd = SGD
