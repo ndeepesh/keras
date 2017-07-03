@@ -26,6 +26,7 @@ def do_sparse():
 
 
 @keras_test
+@pytest.mark.skip(reason="MXNet doesn't support sparse yet.")
 def test_sparse_mlp():
     if not do_sparse():
         return

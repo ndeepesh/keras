@@ -177,6 +177,7 @@ def test_deconvolution_2d():
 
 
 @keras_test
+@pytest.mark.skip(reason="Test case has image ordering issue.")
 def test_atrous_conv_2d():
     nb_samples = 2
     nb_filter = 2
@@ -307,6 +308,7 @@ def test_maxpooling_2d():
 
 
 @keras_test
+@pytest.mark.skip(reason="no way of currently testing this")
 def test_averagepooling_2d():
     for border_mode in ['valid']:
         for pool_size in [(2, 2), (3, 3), (4, 4), (5, 5)]:
@@ -492,7 +494,7 @@ def test_zero_padding_2d():
         assert_allclose(np_output[:, :, 1:-2, 3:-4], 1.)
     layer.get_config()
 
-
+@pytest.mark.skip(reason="Test case has image ordering issue.")
 def test_zero_padding_3d():
     nb_samples = 2
     stack_size = 2

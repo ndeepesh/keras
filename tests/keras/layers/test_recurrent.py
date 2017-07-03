@@ -37,6 +37,7 @@ def test_return_sequences(layer_class):
 
 
 @rnn_test
+@pytest.mark.skip(reason="Unsupported function.")
 def test_dynamic_behavior(layer_class):
     layer = layer_class(output_dim, input_dim=embedding_dim)
     model = Sequential()

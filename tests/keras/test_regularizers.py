@@ -50,7 +50,7 @@ def create_model(weight_reg=None, activity_reg=None):
     model.add(Activation('softmax'))
     return model
 
-
+@pytest.mark.skip(reason="Unsupported function.")
 def test_Eigenvalue_reg():
     (X_train, Y_train), (X_test, Y_test), test_ids = get_data()
     reg = regularizers.EigenvalueRegularizer(0.01)

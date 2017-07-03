@@ -10,6 +10,7 @@ from keras.utils.np_utils import to_categorical
 
 
 @keras_test
+@pytest.mark.skip(reason="Test case has image ordering issue.")
 def test_image_classification():
     '''
     Classify random 16x16 color images into several classes using logistic regression

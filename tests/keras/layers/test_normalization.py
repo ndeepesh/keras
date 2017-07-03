@@ -28,6 +28,7 @@ def basic_batchnorm_test():
 
 
 @keras_test
+@pytest.mark.skip(reason="Unsupported function.")
 def test_batchnorm_mode_0_or_2():
     for mode in [0, 2]:
         model = Sequential()
@@ -93,6 +94,7 @@ def test_batchnorm_mode_1():
 
 
 @keras_test
+@pytest.mark.skip(reason="Unsupported function.")
 def test_shared_batchnorm():
     '''Test that a BN layer can be shared
     across different data streams.
