@@ -1,4 +1,4 @@
-# Keras: Deep Learning library for TensorFlow and Theano
+# Keras: Deep Learning library for MXNet, TensorFlow and Theano
 
 [![Build Status](https://travis-ci.org/fchollet/keras.svg?branch=master)](https://travis-ci.org/fchollet/keras)
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg?maxAge=2592000)](https://github.com/fchollet/keras/blob/master/LICENSE)
@@ -6,7 +6,7 @@
 
 ## You have just found Keras.
 
-Keras is a high-level neural networks library, written in Python and capable of running on top of either [TensorFlow](https://github.com/tensorflow/tensorflow) or [Theano](https://github.com/Theano/Theano). It was developed with a focus on enabling fast experimentation. *Being able to go from idea to result with the least possible delay is key to doing good research.*
+Keras is a high-level neural networks library, written in Python and capable of running on top of either [MXNet](https://github.com/apache/incubator-mxnet), [TensorFlow](https://github.com/tensorflow/tensorflow) or [Theano](https://github.com/Theano/Theano). It was developed with a focus on enabling fast experimentation. *Being able to go from idea to result with the least possible delay is key to doing good research.*
 
 Use Keras if you need a deep learning library that:
 
@@ -114,6 +114,10 @@ Keras uses the following dependencies:
 - HDF5 and h5py (optional, required if you use model saving/loading functions)
 - Optional but recommended if you use CNNs: cuDNN.
 
+*When using the MXNet backend:*
+
+- Follow installation guide here to setup MXNet and Keras with MXNet backend on a CPU/GPU machine.
+    - [See installation instructions](https://github.com/dmlc/keras/wiki/Installation).
 
 *When using the TensorFlow backend:*
 
@@ -130,17 +134,39 @@ To install Keras, `cd` to the Keras folder and run the install command:
 sudo python setup.py install
 ```
 
-You can also install Keras from PyPI:
+You can also install Keras with MXNet backend from PyPI:
 ```sh
-sudo pip install keras
+sudo pip install keras-mxnet
 ```
 
 ------------------
 
 
-## Switching from TensorFlow to Theano
+## Multi GPU Training
 
-By default, Keras will use TensorFlow as its tensor manipulation library. [Follow these instructions](http://keras.io/backend/) to configure the Keras backend.
+To use multiple GPUs for your model training with MXNet backend, it is as simple as compiling the model by specifying the list of GPU IDs to be used for model training.
+
+Example, for training with 4 GPUs, we compile the model with *context* set to a list - *[gpu(0), gpu(1), gpu(2), gpu(3)]*
+
+```python
+# Compile the model by specifying context with list of GPU IDs to be used during training.
+gpu_list = ["gpu(0)", "gpu(1)", "gpu(2)", "gpu(3)"]
+model.compile(loss='categorical_crossentropy',
+              optimizer=opt,
+              metrics=['accuracy'], context=gpu_list)
+```
+
+That's it! MXNet backend will use 4 GPUs for training your model!
+
+For more detailed tutorial, refer here - [Multi GPU training with Keras and MXNet](https://github.com/dmlc/keras/wiki/Using-Keras-with-MXNet-in-Multi-GPU-mode)
+
+
+------------------
+
+
+## Switching from MXNet to Tensorflow or Theano
+
+By default, dmlc/Keras will use MXNet as its tensor manipulation library. [Follow these instructions](http://keras.io/backend/) to configure the Keras backend.
 
 ------------------
 
