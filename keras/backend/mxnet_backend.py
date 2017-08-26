@@ -821,8 +821,8 @@ def zeros_like(x, name=None):
     """
     if name is None:
         name = _autogen_name('zerolikeinit')
-    y = mx._symbol_internal._zeros(dtype=dtype(x))
-    return KerasSymbol(mx._symbol_internal._identity_with_attr_like_rhs(y, x.symbol), name=name, is_var=True)
+    y = mx.symbol._internal._zeros(dtype=dtype(x))
+    return KerasSymbol(mx.symbol._internal._identity_with_attr_like_rhs(y, x.symbol), name=name, is_var=True)
 
 
 def ones_like(x, name=None):
@@ -847,8 +847,8 @@ def ones_like(x, name=None):
     """
     if name is None:
         name = _autogen_name('zerolikeinit')
-    y = mx._symbol_internal._ones(dtype=dtype(x))
-    return KerasSymbol(mx._symbol_internal._identity_with_attr_like_rhs(y, x.symbol), name=name, is_var=True)
+    y = mx.symbol._internal._ones(dtype=dtype(x))
+    return KerasSymbol(mx.symbol._internal._identity_with_attr_like_rhs(y, x.symbol), name=name, is_var=True)
 
 
 def random_uniform_variable(shape, low, high, dtype=None,
