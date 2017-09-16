@@ -599,8 +599,8 @@ class Lambda(Layer):
 
     def get_output_shape_for(self, input_shape):
         if self._output_shape is None:
-            # With TensorFlow, we can infer the output shape directly:
-            if K.backend() == 'tensorflow':
+            # With TensorFlow and MXNet, we can infer the output shape directly:
+            if K.backend() == 'tensorflow' or 'mxnet':
                 if isinstance(input_shape, list):
                     xs = [K.placeholder(shape=shape) for shape in input_shape]
                     x = self.call(xs)
