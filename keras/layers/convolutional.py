@@ -231,6 +231,7 @@ class AtrousConvolution1D(Convolution1D):
         weights: list of numpy arrays to set as initial weights.
         border_mode: 'valid', 'same' or 'full'
             ('full' requires the Theano backend).
+        causal: results in causal (dilated) convolutions, e.g. output[t] does not depend on input[t+1:]. Useful when modeling temporal data where the model should not violate the temporal order.
         subsample_length: factor by which to subsample output.
         atrous_rate: Factor for kernel dilation. Also called filter_dilation
             elsewhere.
@@ -270,6 +271,14 @@ class AtrousConvolution1D(Convolution1D):
                  W_constraint=None, b_constraint=None,
                  bias=True, **kwargs):
 
+        self.causal = False
+        if border_mode == 'causal':
+            if K.backend() != 'mxnet':
+                raise NotImplementedError("causal border mode is only implemented for MXNet")
+            else:
+                self.causal = True
+                border_mode = 'same'
+
         if border_mode not in {'valid', 'same', 'full'}:
             raise ValueError('Invalid border mode for AtrousConv1D:', border_mode)
 
@@ -286,7 +295,11 @@ class AtrousConvolution1D(Convolution1D):
             bias=bias, **kwargs)
 
     def get_output_shape_for(self, input_shape):
-        length = conv_output_length(input_shape[1],
+        if self.causal is True:
+            shp = input_shape[1] + self.atrous_rate * (self.filter_length - 1)
+        else:
+            shp = input_shape[1]
+        length = conv_output_length(shp,
                                     self.filter_length,
                                     self.border_mode,
                                     self.subsample[0],
@@ -294,6 +307,8 @@ class AtrousConvolution1D(Convolution1D):
         return (input_shape[0], length, self.nb_filter)
 
     def call(self, x, mask=None):
+        if self.causal is True:
+            x = K.asymmetric_temporal_padding(x, self.atrous_rate * (self.filter_length - 1), 0)
         x = K.expand_dims(x, 2)  # add a dummy dimension
         output = K.conv2d(x, self.W, strides=self.subsample,
                           border_mode=self.border_mode,

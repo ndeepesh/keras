@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pytest
 import numpy as np
 from numpy.testing import assert_allclose
@@ -53,8 +54,9 @@ def test_atrous_conv_1d():
     input_dim = 2
     filter_length = 3
     nb_filter = 3
+    _atrous_border_modes = _convolution_border_modes + ['causal'] if K.backend() == 'mxnet' else _convolution_border_modes
 
-    for border_mode in _convolution_border_modes:
+    for border_mode in _atrous_border_modes:
         for subsample_length in [1, 2]:
             for atrous_rate in [1, 2]:
                 if border_mode == 'same' and subsample_length != 1:
@@ -147,7 +149,7 @@ def test_deconvolution_2d():
             for subsample in [(1, 1), (2, 2)]:
                 if border_mode == 'same' and subsample != (1, 1):
                     continue
-                print batch_size, border_mode, subsample
+                print(batch_size, border_mode, subsample)
                 rows = conv_input_length(nb_row, 3, border_mode, subsample[0])
                 cols = conv_input_length(nb_col, 3, border_mode, subsample[1])
                 layer_test(convolutional.Deconvolution2D,
