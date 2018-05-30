@@ -4,14 +4,208 @@ import tempfile
 import numpy as np
 from numpy.testing import assert_allclose
 
+from keras import backend as K
 from keras.models import Model, Sequential
-from keras.layers import Dense, Dropout, Lambda, RepeatVector, TimeDistributed
+from keras.layers import Dense, Embedding, Lambda, LSTM, RepeatVector, TimeDistributed
 from keras.layers import Input
 from keras import optimizers
 from keras import objectives
 from keras import metrics
 from keras.utils.test_utils import keras_test
-from keras.models import save_model, load_model
+from keras.models import save_model, load_model, get_mxnet_model, save_mxnet_model
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_get_mxnet_model_pred():
+    model = Sequential()
+    model.add(Dense(8, input_shape=(32,)))
+    model.add(Dense(4, input_shape=(8,)))
+
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+
+    X = np.random.random((8, 32))
+    Y = np.random.random((8, 4))
+    model.fit(X, Y, batch_size=8, nb_epoch=5)
+
+    module, symbol = get_mxnet_model(model)
+
+    import mxnet as mx
+
+    assert type(symbol) is mx.symbol.Symbol
+    assert type(module) is mx.module.BucketingModule
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_get_mxnet_model_train():
+    model = Sequential()
+    model.add(Dense(8, input_shape=(32,)))
+    model.add(Dense(4, input_shape=(8,)))
+
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+
+    X = np.random.random((8, 32))
+    Y = np.random.random((8, 4))
+    model.fit(X, Y, batch_size=8, nb_epoch=5)
+
+    module, symbol = get_mxnet_model(model, bucket='train')
+
+    import mxnet as mx
+
+    assert type(symbol) is mx.symbol.Symbol
+    assert type(module) is mx.module.BucketingModule
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_get_mxnet_model_failures():
+    # None type passed in
+    with pytest.raises(AssertionError):
+        get_mxnet_model(None)
+
+    model = Sequential()
+    model.add(Dense(8, input_shape=(32,)))
+    model.add(Dense(4, input_shape=(8,)))
+
+    # Model not compiled
+    with pytest.raises(AssertionError):
+        get_mxnet_model(model)
+
+    # Wrong bucket passed in
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+    with pytest.raises(ValueError):
+        get_mxnet_model(model, bucket='random')
+
+    # Model still not trained so no underlying bucket
+    with pytest.raises(ValueError):
+        get_mxnet_model(model, bucket='train')
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_sequential_lstm_mxnet_model_saving():
+    maxlen = 80
+
+    model = Sequential()
+    model.add(Embedding(1000, 128, input_length=maxlen))
+    model.add(LSTM(128, unroll=True))
+
+    model.compile(loss='binary_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+
+    # Generate data for dummy network
+    X = np.random.random((1000, 80))
+    Y = np.random.random((1000, 128))
+    model.fit(X, Y, batch_size=32, nb_epoch=2)
+
+    model_prefix = 'test_lstm'
+    data_names, data_shapes = save_mxnet_model(model, prefix=model_prefix, epoch=0)
+
+    # Import with MXNet and try to perform inference
+    import mxnet as mx
+
+    X_dummy_for_pred = mx.nd.random.normal(shape=(1, 80))
+    pred_keras = model.predict([X_dummy_for_pred.asnumpy()], batch_size=1)
+
+    sym, arg_params, aux_params = mx.model.load_checkpoint(model_prefix, epoch=0)
+    mod = mx.mod.Module(symbol=sym, data_names=[data_names[0]], context=mx.cpu(), label_names=None)
+    mod.bind(for_training=False, data_shapes=[(data_names[0], (1, 80))], label_shapes=mod._label_shapes)
+    mod.set_params(arg_params, aux_params, allow_missing=True)
+    data_iter = mx.io.NDArrayIter([X_dummy_for_pred], label=None, batch_size=1)
+    pred_mxnet = mod.predict(data_iter)
+
+    # Check if predictions made through mxnet and keras model are same
+    assert_allclose(pred_mxnet.asnumpy(), pred_keras, rtol=1e-03)
+
+    os.remove(model_prefix + "-symbol.json")
+    os.remove(model_prefix + "-0000.params")
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_sequential_dense_mxnet_model_saving():
+    model = Sequential()
+    model.add(Dense(8, input_shape=(32,)))
+    model.add(Dense(4, input_shape=(8,)))
+
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+
+    # Generate data for dummy network
+    X = np.random.random((8, 32))
+    Y = np.random.random((8, 4))
+    model.fit(X, Y, batch_size=8, nb_epoch=5)
+
+    model_prefix = 'test_dense'
+    data_names, data_shapes = save_mxnet_model(model, model_prefix, epoch=1)
+
+    # Import with MXNet and try to perform inference
+    import mxnet as mx
+
+    X_dummy_for_pred = mx.nd.random.normal(shape=(4, 32))
+    pred_keras = model.predict([X_dummy_for_pred.asnumpy()], batch_size=4)
+
+    sym, arg_params, aux_params = mx.model.load_checkpoint(model_prefix, epoch=1)
+    mod = mx.mod.Module(symbol=sym, data_names=[data_names[0]], context=mx.cpu(), label_names=None)
+    mod.bind(for_training=False, data_shapes=[(data_names[0], (4, 32))], label_shapes=mod._label_shapes)
+    mod.set_params(arg_params, aux_params, allow_missing=True)
+    data_iter = mx.io.NDArrayIter([X_dummy_for_pred], label=None, batch_size=1)
+    pred_mxnet = mod.predict(data_iter)
+
+    # Check if predictions made through mxnet and keras model are same
+    assert_allclose(pred_mxnet.asnumpy(), pred_keras, rtol=1e-03)
+
+    os.remove(model_prefix + "-symbol.json")
+    os.remove(model_prefix + "-0001.params")
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_sequential_mxnet_model_not_compiled():
+    model = Sequential()
+    model.add(Dense(8, input_shape=(32,)))
+    model.add(Dense(4, input_shape=(8,)))
+
+    model_prefix = 'test_dense'
+    with pytest.raises(AssertionError):
+        save_mxnet_model(model, model_prefix, epoch=0)
+
+
+@keras_test
+@pytest.mark.skipif((K.backend() != 'mxnet'), reason='Supported for MXNet backend only')
+def test_model_dense_mxnet_model_saving():
+    input = Input(shape=(32,))
+    hidden_output = Dense(8, input_shape=(32,))(input)
+    model = Model([input], [hidden_output])
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+
+    # Generate data for dummy network
+    X = np.random.random((1, 32))
+    Y = np.random.random((1, 8))
+    model.fit(X, Y, batch_size=1, nb_epoch=2)
+
+    model_prefix = 'test_model_api_dense'
+    data_names, data_shapes = save_mxnet_model(model, model_prefix, epoch=0)
+
+    # Import with MXNet and try to perform inference
+    import mxnet as mx
+
+    X_dummy_for_pred = mx.nd.random.normal(shape=(1, 32))
+    pred_keras = model.predict([X_dummy_for_pred.asnumpy()], batch_size=1)
+
+    sym, arg_params, aux_params = mx.model.load_checkpoint(model_prefix, epoch=0)
+    mod = mx.mod.Module(symbol=sym, data_names=[data_names[0]], context=mx.cpu(), label_names=None)
+    mod.bind(for_training=False, data_shapes=[(data_names[0], (1, 32))], label_shapes=mod._label_shapes)
+    mod.set_params(arg_params, aux_params, allow_missing=True)
+    data_iter = mx.io.NDArrayIter([X_dummy_for_pred], label=None, batch_size=1)
+    pred_mxnet = mod.predict(data_iter)
+
+    # Check if predictions made through mxnet and keras model are same
+    assert_allclose(pred_mxnet.asnumpy(), pred_keras, rtol=1e-03)
+
+    os.remove(model_prefix + "-symbol.json")
+    os.remove(model_prefix + "-0000.params")
 
 
 @keras_test

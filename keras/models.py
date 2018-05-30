@@ -13,6 +13,125 @@ from .engine.topology import get_source_inputs, Node, Layer, Merge
 from .optimizers import optimizer_from_config
 
 
+def get_mxnet_model(model, bucket='pred'):
+    """Extracts and Returns MXNet Module and Symbol from Keras model. Params can be extracted like
+    `module.get_params()`. Keras has three buckets for MXNet BucketingModule `train`, `test` and
+    `pred` each with its own Symbol Graph. All buckets share parameters.
+
+    # Arguments
+        model: Keras model instance from which to extract MXNet model
+        bucket: One of `train`, `test`, `pred`
+    # Returns
+        mxnet_module, mxnet_symbol
+    """
+    assert model is not None, 'MXNet Backend: Invalid state. Model cannot be None'
+
+    # Handle Sequential Model/Funtional API Model case
+    if isinstance(model, Sequential):
+        mxnet_model = model.model
+    elif isinstance(model, Model):
+        mxnet_model = model
+    else:
+        raise ValueError('MXNet Backend: Invalid Model type. Supported Models - Sequential, Model.')
+
+    assert mxnet_model is not None, 'MXNet Backend: Invalid State. MXNet Model cannot be None.'
+
+    module = mxnet_model._mod
+    assert module is not None, 'MXNet Backend: Module cannot be None'
+
+    if bucket not in ['pred', 'train', 'test']:
+        raise ValueError('MXNet Backend: Wrong bucket passed in. Should be one of `train`, `test`, `pred`')
+
+    current_bucket_names = [key for key in module._buckets]
+    if bucket not in current_bucket_names:
+        raise ValueError('MXNet Backend: Bucket not yet created. Make sure you fit the model')
+
+    if bucket == "train":
+        symbol = mxnet_model._train_sym
+    elif bucket == "test":
+        symbol = mxnet_model._test_sym
+    else:
+        symbol = mxnet_model._pred_sym
+
+    assert symbol is not None, 'MXNet Backend: Invalid state. MXNet Symbol cannot be None'
+
+    return module, symbol
+
+
+def save_mxnet_model(model, prefix, bucket='pred', epoch=0):
+    """Save the model as MXNet model.
+
+    The saved model can be used to load in MXNet engine for inference. Can be used to perform
+    inference on any language bindings supported by MXNet.
+
+    Note: data_names and data_shapes required in MXNet represent input layer name and shape.
+    When you call save_mxnet_model, these information will be printed.
+    You can change the first dimension of data_shapes to match batch size for inference.
+
+    Below sample code shows how to load a Keras-MXNet pre-trained model saved with 'prefix',
+    input name as '/dense_1_input1' and inference batch size of 1 and data shape of 784.
+
+    ```python
+    >>> import mxnet as mx
+    >>> sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch=0)
+    ##  data_names and data_shapes will be print
+    >>> mod = mx.mod.Module(symbol=sym, data_names=['/dense_1_input1'], \
+                            context=mx.cpu(), label_names=None)+    >>> mod.bind(for_training=False, data_shapes=[('/dense_1_input1', (1,784))], \
+                 label_shapes=mod._label_shapes)
+    >>> mod.set_params(arg_params, aux_params, allow_missing=True)
+    ##  Prepare data iterator
+    >>> data_iter = mx.io.NDArrayIter(data, label=None, batch_size=1)
+    ##  Predict
+    >>> result = mod.predict(data_iter)
+    ```
+
+    # Arguments
+        model: Keras model instance to be saved as MXNet model.
+        prefix: Prefix name of the saved Model (symbol and params) files.
+                Model will be saved as '<prefix>-symbol.json' and '<prefix>-<epoch>.params'.
+        bucket: (Optional) Bucket Name for which to save the Symbol. Should be one of `train`, `test`, `pred`
+        epoch: (Optional) Tag the params file with epoch of the model being saved. Default is 0.
+               Model params file is saved as '<prefix>-<epoch>.params' or '<prefix>-0000.params' by default.
+
+    # Returns
+        data_names, data_shapes
+    """
+
+    module, symbol = get_mxnet_model(model, bucket=bucket)
+
+    if bucket not in ['pred', 'train', 'test']:
+        raise ValueError('MXNet Backend: Wrong key passed in. Should be one of `train`, `test`, `pred`')
+
+    current_bucket_names = [key for key in module._buckets]
+    if bucket not in current_bucket_names:
+        raise ValueError('MXNet Backend: Bucket not yet created. Make sure you fit the model')
+
+    # Get Module Input data_names and data_shapes
+    specific_module = module._buckets[bucket]
+
+    data_names = specific_module.data_names
+    data_shapes = specific_module.data_shapes
+
+    symbol_fname = '%s-symbol.json' % prefix
+    params_fname = '%s-%04d.params' % (prefix, epoch)
+
+    symbol.save(symbol_fname)
+    module.save_params(params_fname)
+
+    print('MXNet Backend: Successfully exported the model as MXNet model with bucket = ' + str(bucket))
+    print('MXNet symbol file - ', symbol_fname)
+
+    print('MXNet params file - ', params_fname)
+    print('\n\nModel input data_names and data_shapes are: ')
+    print('data_names : ', data_names)
+    print('data_shapes : ', data_shapes)
+    print('\n\nNote: In the above data_shapes, the first dimension represent '
+          + 'the batch_size used for model training. ')
+    print('You can change the batch_size for binding the module based on your inference batch_size.')
+
+    return data_names, data_shapes
+
+
 def save_model(model, filepath, overwrite=True):
 
     def get_json_type(obj):
